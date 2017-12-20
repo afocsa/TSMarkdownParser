@@ -48,15 +48,31 @@ typedef NSFont UIFont;
 #endif
     
     _listAttributes = @[];
-    _quoteAttributes = @[@{NSFontAttributeName: [UIFont fontWithName:@"HelveticaNeue-Italic" size:defaultSize]}];
+    
+    UIFont *quoteFont = [UIFont fontWithName:@"HelveticaNeue-Italic" size:defaultSize];
+    if (!quoteFont) {
+        quoteFont = [UIFont italicSystemFontOfSize:defaultSize] ?: [UIFont systemFontOfSize:defaultSize];
+    }
+    
+    if (quoteFont) {
+        _quoteAttributes = @[@{NSFontAttributeName: quoteFont}];
+    }
     
     _imageAttributes = @{};
     _linkAttributes = @{ NSForegroundColorAttributeName: [UIColor blueColor],
                          NSUnderlineStyleAttributeName: @(NSUnderlineStyleSingle) };
     
     // Courier New and Courier are the only monospace fonts compatible with watchOS 2
-    _monospaceAttributes = @{ NSFontAttributeName: [UIFont fontWithName:@"Courier New" size:defaultSize],
-                              NSForegroundColorAttributeName: [UIColor colorWithRed:0.95 green:0.54 blue:0.55 alpha:1] };
+    UIFont *monospaceFont = [UIFont fontWithName:@"Courier New" size:defaultSize];
+    if (!monospaceFont) {
+        monospaceFont = [UIFont systemFontOfSize:defaultSize];
+    }
+    
+    if (monospaceFont) {
+        _monospaceAttributes = @{ NSFontAttributeName: monospaceFont,
+                                  NSForegroundColorAttributeName: [UIColor colorWithRed:0.95 green:0.54 blue:0.55 alpha:1] };
+    }
+    
     _strongAttributes = @{ NSFontAttributeName: [UIFont boldSystemFontOfSize:defaultSize] };
     
 #if TARGET_OS_IPHONE
@@ -118,8 +134,7 @@ typedef NSFont UIFont;
             [attributedString replaceCharactersInRange:range withAttributedString:imgStr];
         } else {
             if (!weakParser.skipLinkAttribute) {
-                NSURL *url = [NSURL URLWithString:link] ?: [NSURL URLWithString:
-                                                            [link stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+                NSURL *url = [NSURL URLWithString:link] ?: [NSURL URLWithString: [TSMarkdownParser urlStringUTF8Encoded:link]];
                 if (url.scheme) {
                     [attributedString addAttribute:NSLinkAttributeName
                                              value:url
@@ -132,8 +147,7 @@ typedef NSFont UIFont;
     
     [defaultParser addLinkParsingWithLinkFormattingBlock:^(NSMutableAttributedString *attributedString, NSRange range, NSString * _Nullable link) {
         if (!weakParser.skipLinkAttribute) {
-            NSURL *url = [NSURL URLWithString:link] ?: [NSURL URLWithString:
-                                                        [link stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+            NSURL *url = [NSURL URLWithString:link] ?: [NSURL URLWithString: [TSMarkdownParser urlStringUTF8Encoded:link]];
             if (url) {
                 [attributedString addAttribute:NSLinkAttributeName
                                          value:url
@@ -162,8 +176,7 @@ typedef NSFont UIFont;
             if (alreadyLinked) {
                 return;
             }
-            NSURL *url = [NSURL URLWithString:link] ?: [NSURL URLWithString:
-                                                        [link stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+            NSURL *url = [NSURL URLWithString:link] ?: [NSURL URLWithString:[TSMarkdownParser urlStringUTF8Encoded:link]];
 
             [attributedString addAttribute:NSLinkAttributeName
                                      value:url
@@ -470,5 +483,14 @@ static NSString *const TSMarkdownEmRegex            = @"(\\*|_)(.+?)(\\1)";
         [attributedString replaceCharactersInRange:match.range withString:unescapedString];
     }];
 }
+
+#pragma mark helpers
+
++ (NSString *)urlStringUTF8Encoded:(NSString *)url {
+    NSMutableCharacterSet *charsAllowed = [[NSCharacterSet URLQueryAllowedCharacterSet] mutableCopy];
+    [charsAllowed removeCharactersInString:@":/?#[]@!$ &'()*+,;=\"<>%{}|\\^~`"];
+    return [url stringByAddingPercentEncodingWithAllowedCharacters:charsAllowed];
+}
+
 
 @end
